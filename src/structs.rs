@@ -19,9 +19,17 @@ pub struct Chat {
     pub last_name: Option<String>
 }
 #[derive(Deserialize,Debug)]
+pub struct MessageEntity {
+    #[serde(rename = "type")]
+    pub t: String,
+    pub offset: usize,
+    pub length: usize
+}
+#[derive(Deserialize,Debug)]
 pub struct Message {
     pub text: Option<String>,
-    pub chat: Chat
+    pub chat: Chat,
+    pub entities: Option<Vec<MessageEntity>>
 }
 #[derive(Deserialize,Debug)]
 pub struct Update {
