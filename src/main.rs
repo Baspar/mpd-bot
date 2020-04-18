@@ -1,15 +1,35 @@
 use tokio::time::{delay_for, Duration};
-// use tokio::task::spawn_blocking;
+use tokio::fs::File;
+use tokio::io;
+use futures::stream::TryStreamExt;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 mod structs;
 use structs::{Update,Res};
+
+pub type BoxError = std::boxed::Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>;
 
 fn make_url(method: String) -> String {
     let key = std::env::var("MPD_BOT_API_KEY").unwrap();
     format!("https://api.telegram.org/bot{}/{}", key, method)
 }
 
-async fn process_update(update: Update) {
+async fn download_file(url: String) -> Result<(), BoxError> {
+    println!("Downloading {}", url);
+    let response = reqwest::get(&url).await?;
+    let response = response.error_for_status()?;
+    let response = response.bytes_stream();
+    let response = response.map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
+    let response = response.into_async_read();
+    let mut response = response.compat();
+
+    let mut file = File::create("music.audio").await?;
+    io::copy(&mut response, &mut file).await?;
+    println!("{} downloaded", url);
+    Ok(())
+}
+
+fn process_update(update: Update) {
     if let Some(message) = update.message {
         match (message.text, message.entities) {
             (Some(text), Some(entities)) => {
@@ -18,7 +38,7 @@ async fn process_update(update: Update) {
                     .filter(|entity| entity.t == "url")
                     .map(|entity| String::from(text.get(entity.offset..entity.offset + entity.length).unwrap()));
                 for url_entity in url_entities {
-                    println!("{}", url_entity);
+                    tokio::spawn(download_file(url_entity));
                 }
             },
             _ => {}
@@ -27,7 +47,7 @@ async fn process_update(update: Update) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), BoxError> {
     let mut last_update_id: Option<i64> = None;
     loop {
         let method = match last_update_id {
@@ -42,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{} updates", res.result.len());
         for update in res.result {
             last_update_id = Some(update.update_id);
-            tokio::spawn(process_update(update));
+            process_update(update);
         }
         delay_for(Duration::from_secs(1)).await;
     }
