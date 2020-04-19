@@ -1,14 +1,12 @@
 use crate::utils::BoxError;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use rusqlite::{params, Connection, Result};
 use std::path::Path;
 
 fn migrate(conn: &Connection) -> Result<(), BoxError> {
     conn.execute("CREATE TABLE IF NOT EXISTS chat_authorization (
         chat_id TEXT PRIMARY KEY,
-        first_name Text,
-        last_name Text,
         authorized NUMERIC
     )", params![])?;
     Ok(())
@@ -24,4 +22,19 @@ pub fn init() -> Result<Arc<Mutex<Connection>>, BoxError> {
     println!("Migrated DB");
     let conn = Arc::new(Mutex::new(conn));
     Ok(conn)
+}
+
+pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<bool, BoxError> {
+    tokio::task::spawn_blocking(move || -> Result<bool, BoxError> {
+        let conn = conn.lock().unwrap();
+        let mut query = conn.prepare("SELECT * from chat_authorization where chat_id = ?1;")?;
+        let row: Result<bool, _> = query.query_row(params![chat_id], |row| row.get(3));
+        match row {
+            Ok(is_authorized) => return Ok(is_authorized),
+            _ => {
+                println!("New chat: {}", chat_id);
+            }
+        }
+        Ok(false)
+    }).await?
 }

@@ -1,4 +1,4 @@
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use tokio::time::{delay_for, Duration};
 use tokio::fs::File;
 use tokio::io;
@@ -13,7 +13,7 @@ use telegram::structs::Update;
 mod db;
 
 mod utils;
-use utils::BoxError;
+use utils::{BoxError,CustomError};
 
 async fn download_file(url: String) -> Result<(), BoxError> {
     println!("Downloading {}", url);
@@ -30,8 +30,13 @@ async fn download_file(url: String) -> Result<(), BoxError> {
     Ok(())
 }
 
-fn process_update(_conn: Arc<Mutex<Connection>>, update: Update) -> Result<(), BoxError> {
+async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<(), BoxError> {
     let message = update.message.ok_or("No message found")?;
+    let chat_id = message.chat.id;
+    if !db::is_chat_authorized(conn, chat_id).await? {
+        return Err(Box::new(CustomError::new(format!("Chat {} not authorized", chat_id))))
+    }
+
     let text = message.text.ok_or("no text found")?;
     let entities = message.entities.ok_or("no entities found")?;
     let url_entities = entities
@@ -54,7 +59,7 @@ async fn main() -> Result<(), BoxError> {
         for update in res.result {
             let update_id = update.update_id;
             last_update_id = Some(update_id);
-            match process_update(conn.clone(), update) {
+            match process_update(conn.clone(), update).await {
                 Err(err) => println!("[{}] {}", update_id, err),
                 _ => {}
             }
