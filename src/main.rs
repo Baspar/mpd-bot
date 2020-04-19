@@ -1,20 +1,19 @@
+use tokio::sync::Mutex;
 use tokio::time::{delay_for, Duration};
 use tokio::fs::File;
 use tokio::io;
+use std::sync::Arc;
 use futures::stream::TryStreamExt;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
+use rusqlite::Connection;
 
-mod structs;
-use structs::{Update,Res};
+mod telegram;
+use telegram::structs::Update;
 
 mod db;
 
-pub type BoxError = std::boxed::Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>;
-
-fn make_url(method: String) -> Result<String, BoxError> {
-    let key = std::env::var("MPD_BOT_API_KEY")?;
-    Ok(format!("https://api.telegram.org/bot{}/{}", key, method))
-}
+mod utils;
+use utils::BoxError;
 
 async fn download_file(url: String) -> Result<(), BoxError> {
     println!("Downloading {}", url);
@@ -31,7 +30,7 @@ async fn download_file(url: String) -> Result<(), BoxError> {
     Ok(())
 }
 
-fn process_update(update: Update) -> Result<(), BoxError> {
+fn process_update(_conn: Arc<Mutex<Connection>>, update: Update) -> Result<(), BoxError> {
     let message = update.message.ok_or("No message found")?;
     let text = message.text.ok_or("no text found")?;
     let entities = message.entities.ok_or("no entities found")?;
@@ -48,21 +47,14 @@ fn process_update(update: Update) -> Result<(), BoxError> {
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
     let mut last_update_id: Option<i64> = None;
-    let _conn = tokio::task::spawn_blocking(db::init);
+    let conn = tokio::task::spawn_blocking(db::init).await??;
     loop {
-        let method = match last_update_id {
-            None => String::from("getUpdates"),
-            Some(id) => format!("getUpdates?offset={}", id + 1)
-        };
-        let res: Res<Vec<Update>> = reqwest::get(&make_url(method)?)
-            .await?
-            .json()
-            .await?;
+        let res = telegram::get_update(&last_update_id).await?;
         println!("{} updates", res.result.len());
         for update in res.result {
             let update_id = update.update_id;
             last_update_id = Some(update_id);
-            match process_update(update) {
+            match process_update(conn.clone(), update) {
                 Err(err) => println!("[{}] {}", update_id, err),
                 _ => {}
             }
