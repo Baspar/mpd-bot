@@ -16,12 +16,12 @@ fn make_url(method: String) -> String {
 
 async fn download_file(url: String) -> Result<(), BoxError> {
     println!("Downloading {}", url);
-    let response = reqwest::get(&url).await?;
-    let response = response.error_for_status()?;
-    let response = response.bytes_stream();
-    let response = response.map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
-    let response = response.into_async_read();
-    let mut response = response.compat();
+    let mut response = reqwest::get(&url).await?
+        .error_for_status()?
+        .bytes_stream()
+        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
+        .into_async_read()
+        .compat();
 
     let mut file = File::create("music.audio").await?;
     io::copy(&mut response, &mut file).await?;
@@ -29,21 +29,18 @@ async fn download_file(url: String) -> Result<(), BoxError> {
     Ok(())
 }
 
-fn process_update(update: Update) {
-    if let Some(message) = update.message {
-        match (message.text, message.entities) {
-            (Some(text), Some(entities)) => {
-                let url_entities = entities
-                    .iter()
-                    .filter(|entity| entity.t == "url")
-                    .map(|entity| String::from(text.get(entity.offset..entity.offset + entity.length).unwrap()));
-                for url_entity in url_entities {
-                    tokio::spawn(download_file(url_entity));
-                }
-            },
-            _ => {}
-        }
+fn process_update(update: Update) -> Result<(), BoxError> {
+    let message = update.message.ok_or("No message found")?;
+    let text = message.text.ok_or("no text found")?;
+    let entities = message.entities.ok_or("no entities found")?;
+    let url_entities = entities
+        .iter()
+        .filter(|entity| entity.t == "url")
+        .map(|entity| String::from(text.get(entity.offset..entity.offset + entity.length).unwrap()));
+    for url_entity in url_entities {
+        tokio::spawn(download_file(url_entity));
     }
+    Ok(())
 }
 
 #[tokio::main]
@@ -61,8 +58,12 @@ async fn main() -> Result<(), BoxError> {
             .await?;
         println!("{} updates", res.result.len());
         for update in res.result {
-            last_update_id = Some(update.update_id);
-            process_update(update);
+            let update_id = update.update_id;
+            last_update_id = Some(update_id);
+            match process_update(update) {
+                Err(err) => println!("[{}] {}", update_id, err),
+                _ => {}
+            }
         }
         delay_for(Duration::from_secs(1)).await;
     }
