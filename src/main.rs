@@ -7,11 +7,13 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 mod structs;
 use structs::{Update,Res};
 
+mod db;
+
 pub type BoxError = std::boxed::Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>;
 
-fn make_url(method: String) -> String {
-    let key = std::env::var("MPD_BOT_API_KEY").unwrap();
-    format!("https://api.telegram.org/bot{}/{}", key, method)
+fn make_url(method: String) -> Result<String, BoxError> {
+    let key = std::env::var("MPD_BOT_API_KEY")?;
+    Ok(format!("https://api.telegram.org/bot{}/{}", key, method))
 }
 
 async fn download_file(url: String) -> Result<(), BoxError> {
@@ -46,13 +48,13 @@ fn process_update(update: Update) -> Result<(), BoxError> {
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
     let mut last_update_id: Option<i64> = None;
+    let _conn = tokio::task::spawn_blocking(db::init);
     loop {
         let method = match last_update_id {
             None => String::from("getUpdates"),
             Some(id) => format!("getUpdates?offset={}", id + 1)
-
         };
-        let res: Res<Vec<Update>> = reqwest::get(&make_url(method))
+        let res: Res<Vec<Update>> = reqwest::get(&make_url(method)?)
             .await?
             .json()
             .await?;
