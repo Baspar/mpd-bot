@@ -33,6 +33,7 @@ pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> R
             Ok(is_authorized) => return Ok(is_authorized),
             _ => {
                 println!("New chat: {}", chat_id);
+                conn.execute("INSERT INTO chat_authorization (chat_id, authorized) VALUES (?, 0)", params![chat_id])?;
             }
         }
         Ok(false)
