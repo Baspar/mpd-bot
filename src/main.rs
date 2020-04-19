@@ -34,6 +34,7 @@ async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<
     let message = update.message.ok_or("No message found")?;
     let chat_id = message.chat.id;
     if !db::is_chat_authorized(conn, chat_id).await? {
+        telegram::send_message(chat_id, format!("Your chat is not authorized (#{})", chat_id)).await?;
         return Err(Box::new(CustomError::new(format!("Chat {} not authorized", chat_id))))
     }
 
