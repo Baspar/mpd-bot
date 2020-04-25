@@ -60,10 +60,13 @@ pub async fn get_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Resu
     }).await?
 }
 
-pub async fn reset_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<(), BoxError> {
+pub async fn set_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64, status: String, params: Option<String>) -> Result<(), BoxError> {
     tokio::task::spawn_blocking(move || -> Result<(), BoxError> {
         let conn = conn.lock().unwrap();
-        conn.execute("REPLACE INTO chat_status (chat_id, status) VALUES (?, ?)", params![chat_id, "wait_for_command"])?;
+        conn.execute(
+            "REPLACE INTO chat_status (chat_id, status, params) VALUES (?, ?, ?)",
+            params![chat_id, status, params.unwrap_or(format!(""))]
+        )?;
         Ok(())
     }).await?
 }
