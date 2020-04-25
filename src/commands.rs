@@ -26,6 +26,22 @@ pub async fn download(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Vec<
         db::set_chat_status(conn.clone(), chat_id, format!("wait_for_url"), None).await?;
         telegram::send_message(chat_id, format!("Give me the URL")).await?;
     }
+    Ok(())
+}
+
+pub async fn url(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Option<Vec<MessageEntity>>, text: String) -> Result<(), BoxError> {
+    if let Some(entities) = entities {
+        let url = entities
+            .iter()
+            .find(|entity| entity.t == "url")
+            .map(|entity| read_entity_from_text(entity, text.clone()));
+        if let Some(url) = url {
+        } else {
+            telegram::send_message(chat_id, format!("I can't recognize any URL, please try again or /cancel")).await?;
+        }
+    } else {
+        telegram::send_message(chat_id, format!("I can't recognize any URL, please try again or /cancel")).await?;
+    }
     // for url_entity in url_entities {
     //     tokio::spawn(download_file(url_entity));
     // }
