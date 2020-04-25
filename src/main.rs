@@ -13,7 +13,7 @@ use telegram::structs::{Update,Message};
 mod db;
 
 mod utils;
-use utils::{BoxError,CustomError};
+use utils::{BoxError,CustomError,read_entity_from_text};
 
 mod commands;
 
@@ -33,40 +33,33 @@ async fn download_file(url: String) -> Result<(), BoxError> {
 }
 
 async fn process_wait_for_command(conn: Arc<Mutex<Connection>>, message: Message) -> Result<(), BoxError> {
-    let text = message.clone().text.ok_or("no text found")?;
-    let entities = message.clone().entities.ok_or("no entities found")?;
-    let chat_id = message.clone().chat.id;
+    let text = message.text.clone().ok_or("no text found")?;
+    let entities = message.entities.clone().ok_or("no entities found")?;
+    let chat_id = message.chat.id;
     let command = entities
         .iter()
         .find(|entity| entity.t == "bot_command")
-        .map(|entity| text.get(entity.offset..entity.offset + entity.length).unwrap())
+        .map(|entity| read_entity_from_text(entity, text.clone()))
         .ok_or("Waiting for a command")?;
 
-    match command {
+    println!("[{}] {}", chat_id, command);
+    match command.as_str() {
         "/cancel" => commands::cancel(conn, chat_id).await?,
-        "/download" => commands::download(conn, message).await?,
-        _ => {}
+        "/download" => commands::download(conn, chat_id, entities, text).await?,
+        _ => telegram::send_message(chat_id, format!("Command {} doesn't exist", command)).await?
     }
-    let url_entities = entities
-        .iter()
-        .filter(|entity| entity.t == "url")
-        .map(|entity| String::from(text.get(entity.offset..entity.offset + entity.length).unwrap()));
-    // for url_entity in url_entities {
-    //     tokio::spawn(download_file(url_entity));
-    // }
     Ok(())
 }
 
 async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<(), BoxError> {
-    let message = update.message.ok_or("No message found")?;
-    let chat_id = message.clone().chat.id;
+    let message = update.message.clone().ok_or("No message found")?;
+    let chat_id = message.chat.id;
     if !db::is_chat_authorized(conn.clone(), chat_id).await? {
         telegram::send_message(chat_id, format!("Your chat is not authorized (#{})", chat_id)).await?;
         return Err(Box::new(CustomError::new(format!("Chat {} not authorized", chat_id))))
     }
 
     let status = db::get_chat_status(conn.clone(), chat_id).await?;
-    println!("status: {}", status);
 
     match status.as_str() {
         "wait_for_command" => process_wait_for_command(conn, message).await?,

@@ -1,3 +1,5 @@
+use crate::telegram::structs::MessageEntity;
+
 pub type BoxError = std::boxed::Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>;
 
 #[derive(Debug)]
@@ -18,3 +20,7 @@ impl std::fmt::Display for CustomError {
 }
 
 impl std::error::Error for CustomError { }
+
+pub fn read_entity_from_text (entity: &MessageEntity, text: String) -> String {
+    String::from(text.get(entity.offset..entity.offset + entity.length).unwrap())
+}

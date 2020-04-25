@@ -7,7 +7,8 @@ use std::path::Path;
 fn migrate(conn: &Connection) -> Result<(), BoxError> {
     conn.execute("CREATE TABLE IF NOT EXISTS chat_status (
         chat_id NUMERIC PRIMARY KEY,
-        status STRING
+        status STRING,
+        params STRING
     )", params![])?;
     conn.execute("CREATE TABLE IF NOT EXISTS chat_authorization (
         chat_id NUMERIC PRIMARY KEY,
