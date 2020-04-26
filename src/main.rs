@@ -71,7 +71,8 @@ async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<
             .map(|entity| read_entity_from_text(entity, text.clone()))
             .find(|command| command == "/cancel");
         if is_cancel.is_some() {
-            return commands::cancel(conn, chat_id).await;
+            commands::cancel(conn, chat_id).await?;
+            return Ok(())
         }
     }
 
@@ -90,14 +91,15 @@ async fn main() -> Result<(), BoxError> {
     let mut last_update_id: Option<i64> = None;
     let conn = tokio::task::spawn_blocking(db::init).await??;
     loop {
-        let res = telegram::get_update(&last_update_id).await?;
-        println!("{} updates", res.result.len());
-        for update in res.result {
-            let update_id = update.update_id;
-            last_update_id = Some(update_id);
-            match process_update(conn.clone(), update).await {
-                Err(err) => println!("[{}] {}", update_id, err),
-                _ => {}
+        if let Ok(res) = telegram::get_update(&last_update_id).await {
+            println!("{} updates", res.result.len());
+            for update in res.result {
+                let update_id = update.update_id;
+                last_update_id = Some(update_id);
+                match process_update(conn.clone(), update).await {
+                    Err(err) => println!("[{}] {}", update_id, err),
+                    _ => {}
+                }
             }
         }
         delay_for(Duration::from_secs(1)).await;
