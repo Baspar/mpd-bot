@@ -36,6 +36,8 @@ pub async fn url(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Option<Ve
             .find(|entity| entity.t == "url")
             .map(|entity| read_entity_from_text(entity, text.clone()));
         if let Some(url) = url {
+            db::set_chat_status(conn.clone(), chat_id, format!("wait_for_filename"), Some(url)).await?;
+            telegram::send_message(chat_id, format!("What's the filename ?")).await?;
         } else {
             telegram::send_message(chat_id, format!("I can't recognize any URL, please try again or /cancel")).await?;
         }
