@@ -76,11 +76,11 @@ async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<
         }
     }
 
-    let status = db::get_chat_status(conn.clone(), chat_id).await?;
+    let (status, params) = db::get_chat_status(conn.clone(), chat_id).await?;
     match status.as_str() {
         "wait_for_command" => process_wait_for_command(conn, message).await?,
         "wait_for_url" => commands::url(conn, chat_id, entities, text).await?,
-        "wait_for_filename" => {},
+        "wait_for_filename" => commands::filename(conn, chat_id, text, params).await?,
         _ => telegram::send_message(chat_id, format!("I don't get what you mean")).await?
     }
     Ok(())

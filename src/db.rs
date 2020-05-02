@@ -46,16 +46,16 @@ pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> R
     }).await?
 }
 
-pub async fn get_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<String, BoxError> {
-    tokio::task::spawn_blocking(move || -> Result<String, BoxError> {
+pub async fn get_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<(String, String), BoxError> {
+    tokio::task::spawn_blocking(move || -> Result<(String, String), BoxError> {
         let conn = conn.lock().unwrap();
         let mut query = conn.prepare("SELECT * from chat_status WHERE chat_id = ?1;")?;
-        let row: Result<String, _> = query.query_row(params![chat_id], |row| row.get(1));
-        if let Ok(status) = row {
-            return Ok(status)
+        let row: Result<(String, String), _> = query.query_row(params![chat_id], |row| Ok((row.get(1)?, row.get(2)?)));
+        if let Ok((status, params)) = row {
+            return Ok((status, params))
         } else {
             conn.execute("INSERT INTO chat_status (chat_id, status) VALUES (?, ?)", params![chat_id, "wait_for_command"])?;
-            return Ok(format!("wait_for_command"))
+            return Ok((format!("wait_for_command"), format!("")))
         }
     }).await?
 }

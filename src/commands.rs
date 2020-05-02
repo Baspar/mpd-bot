@@ -29,6 +29,11 @@ pub async fn download(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Vec<
     Ok(())
 }
 
+pub async fn filename(conn: Arc<Mutex<Connection>>, chat_id: i64, text: String, url: String) -> Result<(), BoxError> {
+    // db::get_chat_status();
+    Ok(())
+}
+
 pub async fn url(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Option<Vec<MessageEntity>>, text: String) -> Result<(), BoxError> {
     if let Some(entities) = entities {
         let url = entities
