@@ -74,16 +74,19 @@ async fn main() -> Result<(), BoxError> {
     let mut last_update_id: Option<i64> = None;
     let conn = tokio::task::spawn_blocking(db::init).await??;
     loop {
-        if let Ok(res) = telegram::get_update(&last_update_id).await {
-            println!("{} updates", res.result.len());
-            for update in res.result {
-                let update_id = update.update_id;
-                last_update_id = Some(update_id);
-                match process_update(conn.clone(), update).await {
-                    Err(err) => println!("[{}] {}", update_id, err),
-                    _ => {}
+        match telegram::get_update(&last_update_id).await {
+            Ok(res) => {
+                println!("{} updates", res.result.len());
+                for update in res.result {
+                    let update_id = update.update_id;
+                    last_update_id = Some(update_id);
+                    match process_update(conn.clone(), update).await {
+                        Err(err) => println!("[{}] {}", update_id, err),
+                        _ => {}
+                    }
                 }
-            }
+            },
+            Err(e) => println!("Error: {}", e)
         }
         delay_for(Duration::from_secs(1)).await;
     }
