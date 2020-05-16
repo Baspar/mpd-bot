@@ -6,6 +6,7 @@ use crate::db;
 use crate::telegram;
 use crate::utils::{BoxError,read_entity_from_text};
 use crate::telegram::structs::MessageEntity;
+use crate::action;
 
 pub async fn cancel(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<(), BoxError> {
     db::set_chat_status(conn, chat_id, format!("wait_for_command"), None).await?;
@@ -29,8 +30,13 @@ pub async fn download(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Vec<
     Ok(())
 }
 
-pub async fn filename(conn: Arc<Mutex<Connection>>, chat_id: i64, text: String, url: String) -> Result<(), BoxError> {
-    // db::get_chat_status();
+pub async fn filename(_conn: Arc<Mutex<Connection>>, chat_id: i64, filename: String, url: String) -> Result<(), BoxError> {
+    telegram::send_message(chat_id, format!("Downloading {}", filename)).await?;
+    let message = match action::download_file(url, filename.clone()).await {
+        Ok(_) => format!("{} downloaded", filename),
+        Err(err) => format!("cannot download {}", err)
+    };
+    telegram::send_message(chat_id, message).await?;
     Ok(())
 }
 

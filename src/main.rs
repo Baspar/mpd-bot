@@ -1,10 +1,6 @@
 use std::sync::Mutex;
 use tokio::time::{delay_for, Duration};
-use tokio::fs::File;
-use tokio::io;
 use std::sync::Arc;
-use futures::stream::TryStreamExt;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use rusqlite::Connection;
 
 mod telegram;
@@ -17,25 +13,12 @@ use utils::{BoxError,CustomError,read_entity_from_text};
 
 mod commands;
 
-async fn download_file(url: String) -> Result<(), BoxError> {
-    println!("Downloading {}", url);
-    let mut response = reqwest::get(&url).await?
-        .error_for_status()?
-        .bytes_stream()
-        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
-        .into_async_read()
-        .compat();
-
-    let mut file = File::create("music.audio").await?;
-    io::copy(&mut response, &mut file).await?;
-    println!("{} downloaded", url);
-    Ok(())
-}
+mod action;
 
 async fn process_wait_for_command(conn: Arc<Mutex<Connection>>, message: Message) -> Result<(), BoxError> {
-    let text = message.text.clone().ok_or("no text found")?;
+    let text = message.text.ok_or("no text found")?;
     let chat_id = message.chat.id;
-    let entities = message.entities.clone();
+    let entities = message.entities;
     if let Some(entities) = entities {
         let command = entities
             .iter()
