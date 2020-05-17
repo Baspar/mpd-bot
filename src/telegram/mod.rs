@@ -1,6 +1,6 @@
 pub mod structs;
 use crate::utils::BoxError;
-use structs::{Res, Update};
+use structs::{Res, Update, Message};
 use std::collections::HashMap;
 
 fn make_url(method: String) -> Result<String, BoxError> {

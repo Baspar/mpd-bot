@@ -29,14 +29,31 @@ pub fn init() -> Result<Arc<Mutex<Connection>>, BoxError> {
     Ok(conn)
 }
 
-pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<bool, BoxError> {
+pub async fn is_chat_admin(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<bool, BoxError> {
     tokio::task::spawn_blocking(move || -> Result<bool, BoxError> {
         let conn = conn.lock().unwrap();
-        let row = conn
+        let row: Result<i32, _> = conn
             .prepare("SELECT * from chat_authorization WHERE chat_id = ?1;")?
             .query_row(params![chat_id], |row| row.get(1));
         match row {
-            Ok(is_authorized) => return Ok(is_authorized),
+            Ok(is_authorized) => return Ok(is_authorized == 2),
+            _ => {
+                println!("New chat: {}", chat_id);
+                conn.execute("INSERT INTO chat_authorization (chat_id, authorized) VALUES (?, 0)", params![chat_id])?;
+            }
+        }
+        Ok(false)
+    }).await?
+}
+
+pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<bool, BoxError> {
+    tokio::task::spawn_blocking(move || -> Result<bool, BoxError> {
+        let conn = conn.lock().unwrap();
+        let row: Result<i32, _> = conn
+            .prepare("SELECT * from chat_authorization WHERE chat_id = ?1;")?
+            .query_row(params![chat_id], |row| row.get(1));
+        match row {
+            Ok(is_authorized) => return Ok(is_authorized > 0),
             _ => {
                 println!("New chat: {}", chat_id);
                 conn.execute("INSERT INTO chat_authorization (chat_id, authorized) VALUES (?, 0)", params![chat_id])?;

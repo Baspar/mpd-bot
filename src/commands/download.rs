@@ -8,12 +8,6 @@ use crate::utils::{BoxError,read_entity_from_text};
 use crate::telegram::structs::MessageEntity;
 use crate::action;
 
-pub async fn cancel(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<(), BoxError> {
-    db::set_chat_status(conn, chat_id, format!("wait_for_command"), None).await?;
-    telegram::send_message(chat_id, format!("Task cancelled")).await?;
-    Ok(())
-}
-
 pub async fn download(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Vec<MessageEntity>, text: String) -> Result<(), BoxError> {
     let url_entities = entities
         .iter()
@@ -56,7 +50,5 @@ pub async fn url(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Option<Ve
     } else {
         telegram::send_message(chat_id, format!("I can't recognize any URL, please try again or /cancel")).await?;
     }
-    Ok(())
-}
     Ok(())
 }
