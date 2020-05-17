@@ -30,8 +30,9 @@ pub async fn download(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Vec<
     Ok(())
 }
 
-pub async fn filename(_conn: Arc<Mutex<Connection>>, chat_id: i64, filename: String, url: String) -> Result<(), BoxError> {
+pub async fn filename(conn: Arc<Mutex<Connection>>, chat_id: i64, filename: String, url: String) -> Result<(), BoxError> {
     telegram::send_message(chat_id, format!("Downloading {}", filename)).await?;
+    db::set_chat_status(conn, chat_id, format!("wait_for_command"), None).await?;
     let message = match action::download_file(url, filename.clone()).await {
         Ok(_) => format!("{} downloaded", filename),
         Err(err) => format!("cannot download {}", err)
@@ -55,8 +56,7 @@ pub async fn url(conn: Arc<Mutex<Connection>>, chat_id: i64, entities: Option<Ve
     } else {
         telegram::send_message(chat_id, format!("I can't recognize any URL, please try again or /cancel")).await?;
     }
-    // for url_entity in url_entities {
-    //     tokio::spawn(download_file(url_entity));
-    // }
+    Ok(())
+}
     Ok(())
 }
