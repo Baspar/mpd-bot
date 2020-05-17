@@ -12,3 +12,4 @@ tokio-util = { version = "0.3.1", features = ["compat"] }
 rusqlite = "0.22.0"
 futures = "0.3.4"
 regex = "1"
+mpd = "*"
