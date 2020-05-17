@@ -63,6 +63,14 @@ pub async fn is_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: i64) -> R
     }).await?
 }
 
+pub async fn set_chat_authorized(conn: Arc<Mutex<Connection>>, chat_id: String) -> Result<(), BoxError> {
+    tokio::task::spawn_blocking(move || -> Result<(), BoxError> {
+        let conn = conn.lock().unwrap();
+        conn.execute("INSERT OR REPLACE INTO chat_authorization (chat_id, authorized) VALUES (?, 1)", params![chat_id])?;
+        Ok(())
+    }).await?
+}
+
 pub async fn get_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Result<(String, String), BoxError> {
     tokio::task::spawn_blocking(move || -> Result<(String, String), BoxError> {
         let conn = conn.lock().unwrap();

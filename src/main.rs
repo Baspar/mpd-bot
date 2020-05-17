@@ -14,8 +14,6 @@ use utils::{BoxError,CustomError,read_entity_from_text};
 mod commands;
 use commands::{download,cancel,authorize};
 
-mod action;
-
 async fn process_wait_for_command(conn: Arc<Mutex<Connection>>, message: Message) -> Result<(), BoxError> {
     let text = message.text.ok_or("no text found")?;
     let chat_id = message.chat.id;
@@ -64,8 +62,9 @@ async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<
     let (status, params) = db::get_chat_status(conn.clone(), chat_id).await?;
     match status.as_str() {
         "wait_for_command" => process_wait_for_command(conn, message).await?,
-        "wait_for_url" => download::url(conn, chat_id, entities, text).await?,
-        "wait_for_filename" => download::filename(conn, chat_id, text, params).await?,
+        "download_wait_for_url" => download::url(conn, chat_id, entities, text).await?,
+        "download_wait_for_filename" => download::filename(conn, chat_id, text, params).await?,
+        "authorize_wait_for_id" => authorize::authorize(conn, chat_id, text).await?,
         _ => telegram::send_message(chat_id, format!("I don't get what you mean")).await?
     }
     Ok(())
