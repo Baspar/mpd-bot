@@ -77,10 +77,10 @@ pub async fn get_chat_status(conn: Arc<Mutex<Connection>>, chat_id: i64) -> Resu
         let mut query = conn.prepare("SELECT * from chat_status WHERE chat_id = ?1;")?;
         let row: Result<(String, String), _> = query.query_row(params![chat_id], |row| Ok((row.get(1)?, row.get(2)?)));
         if let Ok((status, params)) = row {
-            return Ok((status, params))
+            Ok((status, params))
         } else {
             conn.execute("INSERT INTO chat_status (chat_id, status) VALUES (?, ?)", params![chat_id, "wait_for_command"])?;
-            return Ok((format!("wait_for_command"), format!("")))
+            Ok(("wait_for_command".to_string(), format!("")))
         }
     }).await?
 }

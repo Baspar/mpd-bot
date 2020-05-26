@@ -32,7 +32,7 @@ async fn process_wait_for_command(conn: Arc<Mutex<Connection>>, message: Message
             _ => telegram::send_message(chat_id, format!("Command {} doesn't exist", command)).await?
         }
     } else {
-        telegram::send_message(chat_id, format!("I don't get what you mean")).await?;
+        telegram::send_message(chat_id, "I don't get what you mean".to_string()).await?;
     }
      Ok(())
 }
@@ -65,7 +65,7 @@ async fn process_update(conn: Arc<Mutex<Connection>>, update: Update) -> Result<
         "download_wait_for_url" => download::url(conn, chat_id, entities, text).await?,
         "download_wait_for_filename" => download::filename(conn, chat_id, text, params).await?,
         "authorize_wait_for_id" => authorize::authorize(conn, chat_id, text).await?,
-        _ => telegram::send_message(chat_id, format!("I don't get what you mean")).await?
+        _ => telegram::send_message(chat_id, "I don't get what you mean".to_string()).await?
     }
     Ok(())
 }
@@ -81,9 +81,8 @@ async fn main() -> Result<(), BoxError> {
                 for update in res.result {
                     let update_id = update.update_id;
                     last_update_id = Some(update_id);
-                    match process_update(conn.clone(), update).await {
-                        Err(err) => println!("[{}] {}", update_id, err),
-                        _ => {}
+                    if let Err(err) = process_update(conn.clone(), update).await {
+                        println!("[{}] {}", update_id, err)
                     }
                 }
             },

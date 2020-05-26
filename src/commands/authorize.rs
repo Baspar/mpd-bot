@@ -17,10 +17,10 @@ pub async fn authorize(conn: Arc<Mutex<Connection>>, chat_id: i64, text: String)
                 return Ok(())
             }
         }
-        db::set_chat_status(conn.clone(), chat_id, format!("authorize_wait_for_id"), None).await?;
-        telegram::send_message(chat_id, format!("What's the ID?")).await?;
+        db::set_chat_status(conn.clone(), chat_id, "authorize_wait_for_id".to_string(), None).await?;
+        telegram::send_message(chat_id, "What's the ID?".to_string()).await?;
     } else {
-        telegram::send_message(chat_id, format!("You're not authorized to make changes")).await?;
+        telegram::send_message(chat_id, "You're not authorized to make changes".to_string()).await?;
     }
     Ok(())
 }
